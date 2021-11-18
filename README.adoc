@@ -1,4 +1,4 @@
-= Auto-check-hoyolab
+= Auto-sign-hoyolab
 
 image:https://img.shields.io/badge/vert.x-4.2.1-purple.svg[link="https://vertx.io"]
 
