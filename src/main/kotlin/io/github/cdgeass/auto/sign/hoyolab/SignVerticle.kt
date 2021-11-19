@@ -32,7 +32,7 @@ class SignVerticle : AbstractVerticle() {
   override fun start(startPromise: Promise<Void>) {
     client = WebClient.create(vertx)
 
-    vertx.eventBus().consumer<JsonObject>("sign") { msg ->
+    vertx.eventBus().consumer<JsonObject>("auto.sign") { msg ->
       val json = msg.body()
       val cookie = json.getString("cookie")
       val actId = json.getString("act_id")

@@ -36,6 +36,8 @@ dependencies {
   implementation(kotlin("stdlib-jdk8"))
   testImplementation("io.vertx:vertx-junit5")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
+
+  implementation("com.diabolicallabs:vertx-cron:3.9.4")
 }
 
 val compileKotlin: KotlinCompile by tasks

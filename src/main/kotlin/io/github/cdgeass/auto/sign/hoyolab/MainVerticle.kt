@@ -1,15 +1,40 @@
 package io.github.cdgeass.auto.sign.hoyolab
 
+import com.diabolicallabs.vertx.cron.CronEventSchedulerVertical
 import io.vertx.core.*
 import io.vertx.core.eventbus.EventBus
 import io.vertx.core.json.JsonObject
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
   val vertx = Vertx.vertx()
 
+  vertx.deployVerticle(CronEventSchedulerVertical())
+
   vertx.deployVerticle(MainVerticle())
   vertx.deployVerticle(ConfigVerticle())
   vertx.deployVerticle(SignVerticle())
+
+  // register schedule
+  vertx.eventBus().request<JsonObject>(
+    "cron.schedule", JsonObject(
+      """
+      {
+        "cron_expression": "0 0 8 * * ? *",
+        "timezone_name": "Asia/Shanghai",
+        "address": "auto.start",
+        "message": {},
+        "repeat": true,
+        "action": "send"
+      }
+      """
+    )
+  ) {
+    if (it.failed()) {
+      it.cause().printStackTrace()
+      exitProcess(-1)
+    }
+  }
 
   Runtime.getRuntime().addShutdownHook(Thread {
     vertx.deploymentIDs().forEach { vertx.undeploy(it) }
@@ -23,7 +48,9 @@ class MainVerticle : AbstractVerticle() {
   override fun start(startPromise: Promise<Void>?) {
     eb = vertx.eventBus()
 
-    vertx.setTimer(1000) {
+    eb.consumer<Void>("auto.start") {
+      println("start auto sign")
+
       loadConfig()
         .compose {
           val actId = it.getString("act_id")

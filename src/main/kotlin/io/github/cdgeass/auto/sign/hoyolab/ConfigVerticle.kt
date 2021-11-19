@@ -12,7 +12,7 @@ import io.vertx.core.json.JsonObject
 class ConfigVerticle : AbstractVerticle() {
 
   override fun start(startPromise: Promise<Void>?) {
-    vertx.eventBus().consumer<String>("load.config") { msg ->
+    vertx.eventBus().consumer<String>("auto.load.config") { msg ->
       loadConfig().onSuccess {
         msg.reply(it)
       }.onFailure {
