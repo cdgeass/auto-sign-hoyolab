@@ -5,13 +5,15 @@ image:https://img.shields.io/badge/vert.x-4.2.1-purple.svg[link="https://vertx.i
 基于 Vert.x 开发
 
 在 jar 包同目录下添加 config.json 文件, 每天 8 点自动签到
-```
+
+[source]
+----
 {
     "act_id": "",
     "cookies": [
         // 从浏览器中复制自己的cookie
     ]
 }
-```
+----
 
 

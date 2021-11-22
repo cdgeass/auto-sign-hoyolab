@@ -36,6 +36,8 @@ fun main(args: Array<String>) {
     }
   }
 
+  vertx.eventBus().request<JsonObject>("auto.start", "") {}
+
   Runtime.getRuntime().addShutdownHook(Thread {
     vertx.deploymentIDs().forEach { vertx.undeploy(it) }
   })
@@ -49,7 +51,7 @@ class MainVerticle : AbstractVerticle() {
     eb = vertx.eventBus()
 
     eb.consumer<Void>("auto.start") {
-      println("start auto sign")
+      println("开始签到。。。")
 
       loadConfig()
         .compose {
@@ -62,13 +64,19 @@ class MainVerticle : AbstractVerticle() {
 
           CompositeFuture.all(signFutureList)
         }
+        .onSuccess {
+          println("签到完成。。。")
+        }
+        .onFailure {
+          throw it
+        }
     }
   }
 
   private fun loadConfig(): Future<JsonObject> {
     val promise = Promise.promise<JsonObject>()
 
-    eb.request<JsonObject>("load.config", "") {
+    eb.request<JsonObject>("auto.load.config", "") {
       if (it.succeeded()) {
         promise.complete(it.result().body())
       } else {
@@ -90,7 +98,7 @@ class MainVerticle : AbstractVerticle() {
       """
     )
 
-    eb.request<JsonObject>("sign", json) {
+    eb.request<JsonObject>("auto.sign", json) {
       if (it.succeeded()) {
         promise.complete(it.result().body())
       } else {
