@@ -54,7 +54,7 @@ class SignVerticle : AbstractVerticle() {
 
       fetchUserInfo(cookie)
         .compose {
-          println("开始为 ${it.getJsonObject("user_info").getString("nickname")} 签到")
+          println("开始为 ${it.getJsonObject("data").getJsonObject("user_info").getString("nickname")} 签到")
           sign(cookie, actId)
         }.compose {
           fetchSignInfo(cookie, actId)
