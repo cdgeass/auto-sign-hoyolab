@@ -7,19 +7,23 @@ import io.vertx.core.impl.logging.LoggerFactory
 import io.vertx.core.json.JsonObject
 import kotlin.system.exitProcess
 
-fun main(args: Array<String>) {
-  val vertx = Vertx.vertx()
+class MainVerticle : AbstractVerticle() {
 
-  vertx.deployVerticle(CronEventSchedulerVertical())
+  private val logger = LoggerFactory.getLogger(MainVerticle::class.java)
 
-  vertx.deployVerticle(MainVerticle())
-  vertx.deployVerticle(ConfigVerticle())
-  vertx.deployVerticle(SignVerticle())
+  private lateinit var eb: EventBus
 
-  // register schedule
-  vertx.eventBus().request<JsonObject>(
-    "cron.schedule", JsonObject(
-      """
+  override fun start(startPromise: Promise<Void>?) {
+    vertx.deployVerticle(CronEventSchedulerVertical())
+    vertx.deployVerticle(ConfigVerticle())
+    vertx.deployVerticle(SignVerticle())
+
+    eb = vertx.eventBus()
+
+    // 定时任务
+    eb.request<JsonObject>(
+      "cron.schedule", JsonObject(
+        """
       {
         "cron_expression": "0 0 8 * * ? *",
         "timezone_name": "Asia/Shanghai",
@@ -29,34 +33,19 @@ fun main(args: Array<String>) {
         "action": "send"
       }
       """
-    )
-  ) {
-    if (it.failed()) {
-      it.cause().printStackTrace()
-      exitProcess(-1)
+      )
+    ) {
+      if (it.failed()) {
+        it.cause().printStackTrace()
+        exitProcess(-1)
+      }
     }
-  }
 
-  vertx.eventBus().request<JsonObject>("auto.start", "") {}
-
-  Runtime.getRuntime().addShutdownHook(Thread {
-    vertx.deploymentIDs().forEach { vertx.undeploy(it) }
-  })
-}
-
-class MainVerticle : AbstractVerticle() {
-
-  private val logger = LoggerFactory.getLogger(MainVerticle::class.java)
-
-  private lateinit var eb: EventBus
-
-  override fun start(startPromise: Promise<Void>?) {
-    eb = vertx.eventBus()
-
+    // 签到流程
     eb.consumer<Void>("auto.start") {
       logger.info("开始签到")
 
-      lateinit var signFutureList: List<Future<JsonObject>>
+      var signFutureList: List<Future<JsonObject>> = listOf()
       loadConfig()
         .compose {
           val actId = it.getString("act_id")
@@ -80,6 +69,9 @@ class MainVerticle : AbstractVerticle() {
           logger.info("签到完成")
         }
     }
+
+    // 启动时触发一次
+    eb.request<Void>("auto.start", "")
   }
 
   private fun loadConfig(): Future<JsonObject> {
