@@ -4,6 +4,7 @@ import io.vertx.core.AbstractVerticle
 import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.core.http.impl.headers.HeadersMultiMap
+import io.vertx.core.impl.logging.LoggerFactory
 import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.client.WebClient
 import io.vertx.ext.web.client.WebClientOptions
@@ -15,32 +16,8 @@ import io.vertx.ext.web.codec.BodyCodec
  * @since 2021-11-18
  */
 class SignVerticle : AbstractVerticle() {
-  private val HEADERS1 = HeadersMultiMap.headers()
-    .addAll(
-      mutableMapOf<String, String>(
-        "Accept" to "application/json;charset=utf-8, text/plain, */*",
-        "Accept-Encoding" to "gzip, deflate, br",
-        "Accept-Language" to "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-        "Connection" to "keep-alive",
-        "Host" to "bbs-api-os.mihoyo.com",
-        "Origin" to "https://www.hoyolab.com",
-        "Referer" to "https://www.hoyolab.com/",
-      )
-    )!!
 
-  private val HEADERS2 = HeadersMultiMap.headers()
-    .addAll(
-      mutableMapOf<String, String>(
-        "Accept" to "application/json, text/plain, */*",
-        "Accept-Encoding" to "gzip, deflate, br",
-        "Accept-Language" to "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-        "Connection" to "keep-alive",
-        "Host" to "hk4e-api-os.mihoyo.com",
-        "Origin" to "https://webstatic-sea.mihoyo.com",
-        "Referer" to "https://webstatic-sea.mihoyo.com/",
-      )
-    )!!
-
+  private val logger = LoggerFactory.getLogger(SignVerticle::class.java)
 
   private lateinit var client: WebClient
 
@@ -52,16 +29,25 @@ class SignVerticle : AbstractVerticle() {
       val cookie = json.getString("cookie")
       val actId = json.getString("act_id")
 
+      lateinit var nickName: String
+      var totalSignDay: Int
       fetchUserInfo(cookie)
         .compose {
-          println("开始为 ${it.getJsonObject("data").getJsonObject("user_info").getString("nickname")} 签到")
+          nickName = it.getJsonObject("data").getJsonObject("user_info").getString("nickname")
+
           sign(cookie, actId)
         }.compose {
           fetchSignInfo(cookie, actId)
         }.onSuccess {
-          println("共签到 ${it.getJsonObject("data").getInteger("total_sign_day")} 天")
-          msg.reply(it)
+          totalSignDay = it.getJsonObject("data").getInteger("total_sign_day")
+
+          msg.reply(
+            JsonObject()
+              .put("nickname", nickName)
+              .put("total_sign_day", totalSignDay)
+          )
         }.onFailure {
+          logger.error("签到失败", it)
           msg.fail(500, it.message)
         }
     }
@@ -78,7 +64,12 @@ class SignVerticle : AbstractVerticle() {
       .expect(ResponsePredicate.SC_OK)
       .send {
         if (it.succeeded()) {
-          promise.complete(it.result().body())
+          val body = it.result().body()
+          if (body.getJsonObject("data") == null) {
+            promise.fail(body.getString("message"))
+          } else {
+            promise.complete(it.result().body())
+          }
         } else {
           promise.fail(it.cause())
         }
@@ -136,5 +127,32 @@ class SignVerticle : AbstractVerticle() {
       }
 
     return promise.future()
+  }
+
+  companion object {
+    private val HEADERS1 = HeadersMultiMap.headers()
+      .addAll(
+        mutableMapOf<String, String>(
+          "Accept" to "application/json;charset=utf-8, text/plain, */*",
+          "Accept-Encoding" to "gzip, deflate, br",
+          "Accept-Language" to "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+          "Connection" to "keep-alive",
+          "Host" to "bbs-api-os.mihoyo.com",
+          "Origin" to "https://www.hoyolab.com",
+          "Referer" to "https://www.hoyolab.com/",
+        )
+      )!!
+    private val HEADERS2 = HeadersMultiMap.headers()
+      .addAll(
+        mutableMapOf<String, String>(
+          "Accept" to "application/json, text/plain, */*",
+          "Accept-Encoding" to "gzip, deflate, br",
+          "Accept-Language" to "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+          "Connection" to "keep-alive",
+          "Host" to "hk4e-api-os.mihoyo.com",
+          "Origin" to "https://webstatic-sea.mihoyo.com",
+          "Referer" to "https://webstatic-sea.mihoyo.com/",
+        )
+      )!!
   }
 }

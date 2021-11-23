@@ -3,6 +3,7 @@ package io.github.cdgeass.auto.sign.hoyolab
 import com.diabolicallabs.vertx.cron.CronEventSchedulerVertical
 import io.vertx.core.*
 import io.vertx.core.eventbus.EventBus
+import io.vertx.core.impl.logging.LoggerFactory
 import io.vertx.core.json.JsonObject
 import kotlin.system.exitProcess
 
@@ -45,30 +46,38 @@ fun main(args: Array<String>) {
 
 class MainVerticle : AbstractVerticle() {
 
+  private val logger = LoggerFactory.getLogger(MainVerticle::class.java)
+
   private lateinit var eb: EventBus
 
   override fun start(startPromise: Promise<Void>?) {
     eb = vertx.eventBus()
 
     eb.consumer<Void>("auto.start") {
-      println("开始签到。。。")
+      logger.info("开始签到")
 
+      lateinit var signFutureList: List<Future<JsonObject>>
       loadConfig()
         .compose {
           val actId = it.getString("act_id")
           val cookies = it.getJsonArray("cookies")
 
-          val signFutureList = cookies.map { cookie ->
+          signFutureList = cookies.map { cookie ->
             sign(cookie as String, actId)
           }
 
-          CompositeFuture.all(signFutureList)
+          CompositeFuture.join(signFutureList)
         }
-        .onSuccess {
-          println("签到完成。。。")
-        }
-        .onFailure {
-          throw it
+        .onComplete {
+          signFutureList.forEach { future ->
+            future.onSuccess { msg ->
+              val nickName = msg.getString("nickname")
+              val totalSignDay = msg.getInteger("total_sign_day")
+              logger.info("已为 $nickName 签到，共签到 $totalSignDay 天")
+            }
+          }
+
+          logger.info("签到完成")
         }
     }
   }
@@ -89,14 +98,9 @@ class MainVerticle : AbstractVerticle() {
   private fun sign(cookie: String, actId: String): Future<JsonObject> {
     val promise = Promise.promise<JsonObject>()
 
-    val json = JsonObject(
-      """
-        {
-          "act_id": "$actId",
-          "cookie": "$cookie"
-        }
-      """
-    )
+    val json = JsonObject()
+      .put("act_id", actId)
+      .put("cookie", cookie)
 
     eb.request<JsonObject>("auto.sign", json) {
       if (it.succeeded()) {
