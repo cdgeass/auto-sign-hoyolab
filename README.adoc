@@ -1,7 +1,5 @@
 = 原神国际服 HoyoLab 自动签到
 
-image:https://img.shields.io/badge/vert.x-4.2.1-purple.svg[link="https://vertx.io"]
-
 基于 Vert.x 开发
 
 在 jar 包同目录下添加 config.json 文件, 每天 8 点自动签到
@@ -9,7 +7,7 @@ image:https://img.shields.io/badge/vert.x-4.2.1-purple.svg[link="https://vertx.i
 [source]
 ----
 {
-    "act_id": "",
+    "act_id": "e202102251931481",
     "cookies": [
         // 从浏览器中复制自己的cookie
     ]
